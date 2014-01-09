@@ -15,7 +15,7 @@ namespace FirmwareUpdater.NXPDFU
      * 16 bits contain a magic number and the lower 16 bits contain the
      * version number in x.y format (1.10 = 0x010A).
      */
-    const uint DFUPROG_VALIDVAL = (0x18430000 | (0x010A));
+    public const uint DFUPROG_VALIDVAL = (0x18430000 | (0x010A));
   }
 
   
@@ -73,8 +73,9 @@ namespace FirmwareUpdater.NXPDFU
   public struct ULPktHdr { //16 bytes
     public DFUCommands cmdResponse;       /* Command responding from host */
     public DFUStatusVals progStatus;        /* Current status of system */
-    uint strBytes;          /* Number of bytes in string field */
-    uint reserved;
+    public uint strBytes;          /* Number of bytes in string field */
+    public uint reserved;
+    public byte[] str;
   }
 
 }

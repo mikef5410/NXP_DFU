@@ -67,9 +67,7 @@ namespace FirmwareUpdater
           if (nbytes>0)
             {
               dfu.download(ref dfu.iobuf, nbytes);
-              do {
-                dfu.get_status(out status);
-              } while (status.State != DFUStateVals.STATE_DFU_DOWNLOAD_IDLE); 
+              dfu.wait_idle();
             }
           else
             {

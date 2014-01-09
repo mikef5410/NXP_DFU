@@ -162,6 +162,15 @@ namespace FirmwareUpdater.DFU
       return(rval);
     }
 
+    public bool wait_idle()
+    {
+      DFU_Status status;
+      do {
+        get_status(out status);
+      } while (status.State != DFUStateVals.STATE_DFU_DOWNLOAD_IDLE);
+      return(true);
+    }
+
     public bool make_idle(bool initial_abort)
     {
       int retries = 4;
