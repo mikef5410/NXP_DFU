@@ -1,10 +1,22 @@
 
 all: TestProg.exe
 
-LIBS=LibUsbDotNet.dll
+VPATH=.:./DFU:./NXPDFU
 
-TestProg.exe: TestProg.cs DFU/dfutypes.cs DFU/dfu.cs $(LIBS)
-	gmcs `pkg-config --libs LibUsbDotNet` $(filter-out $(LIBS),$^)
+USBLIB=LibUsbDotNet.dll
+USBLIBref=$(shell pkg-config --libs LibUsbDotNet)
+
+
+DEFINES=-define:MONO_DATACONVERTER_PUBLIC\;MONO_DATACONVERTER_STATIC_METHODS -unsafe
+
+SOURCES=dfutypes.cs dfu.cs nxpdfutypes.cs nxpdfu.cs DataConverter.cs
+
+REFS=$(USBLIBref)
+
+LIBS=$(USBLIB)
+
+TestProg.exe: TestProg.cs $(SOURCES) $(LIBS)
+	gmcs $(DEFINES) $(REFS) $(filter-out $(LIBS),$^)
 
 LibUsbDotNet.dll:
 	ln -s `pkg-config --variable=Libraries LibUsbDotNet` .

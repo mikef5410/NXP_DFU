@@ -4,6 +4,7 @@ using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
 
+
 namespace FirmwareUpdater.DFU
 {
   public class DFUMachine
