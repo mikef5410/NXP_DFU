@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Collections.Generic;
+using NDesk.Options;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
@@ -14,47 +16,90 @@ namespace FirmwareUpdater
     public static UsbDevice ourDevice;
     public static DFUMachine dfu;
     public static NXPDFUMachine nxpdfu;
-    public static bool verbose = false;
+    public static bool chatty = false;
+    public static bool debug = false;
     
     public static void Main(string[] args)
     {
+      bool show_help = false;
+      String secloader = "";
+      String binfile = "";
+      int exitCode=1;
+      
+      var p = new OptionSet () 
+        {
+          { "v|verbose", "tell me what's happening during program.", v => chatty = (v!=null) },
+          { "d|debug", "more debugging output.", v => debug = (v!=null) },
+          { "s|secondary_loader=", "filename of secondary loader", v => secloader=v },
+          { "b|binfile=", "filename of bin flash image", v => binfile=v },
+          { "h|help", "show this message and exit", v => show_help = (v!=null) },
+        };
+
+      List<string> extra;
+      try {
+        extra = p.Parse (args);
+      }
+      catch (OptionException e) {
+        Console.Write ("fup: ");
+        Console.WriteLine (e.Message);
+        Console.WriteLine ("Try `fup --help' for more information.");
+        return;
+      }
+
+      if (secloader.Length == 0  || binfile.Length == 0) show_help=true;
+      
+
+      if (show_help) {
+        ShowHelp (p);
+        return;
+      }
+      
+      if (debug) chatty=true;
+   
       ourDevice=findOurDevice();
       dfu = new DFUMachine(ourDevice);
       
       if (dfu.findInterface())
         {
-          Console.WriteLine("Found DFU interface");
-          Console.WriteLine(dfu.ToString());
+          verboseOut("Found DFU interface");
           dfu.claimIface();
           DEBUG("wTransferSize = "+dfu.wTransferSize.ToString());
         }
       //Hack
       if (dfu.wTransferSize == 0) dfu.wTransferSize=2048;
-      phaseOne(@"SECLOAD.bin.hdr", dfu);
+      phaseOne(secloader, dfu);
 
-      Console.WriteLine("Wait 5 sec for next phase ...");
+      verboseOut("Wait 5 sec for next phase ...");
       Thread.Sleep(5000);
       if (ourDevice.IsOpen) ourDevice.Close();
       ourDevice=findOurDevice();
       nxpdfu = new NXPDFUMachine(ourDevice);
       if (nxpdfu.findInterface())
         {
-          Console.WriteLine("Found DFU interface");
-          Console.WriteLine(nxpdfu.ToString());
+          verboseOut("Found DFU interface");
           nxpdfu.claimIface();
           DEBUG("wTransferSize = "+nxpdfu.wTransferSize.ToString());
         }
       //Hack
       if (nxpdfu.wTransferSize == 0) nxpdfu.wTransferSize=2048;
-      //nxpdfu.verbose=true;
-      phaseTwo(@"LE320.bin",nxpdfu);
+      if ( phaseTwo(binfile, nxpdfu) ) exitCode=0;
 
-      
       if (ourDevice.IsOpen) ourDevice.Close();
       UsbDevice.Exit();
-      Environment.Exit(0);   
+      Environment.Exit(exitCode);   
     } //Main
 
+    
+    static void ShowHelp (OptionSet p)
+    {
+      Console.WriteLine ("Usage: fup -s secloader -b bin [OPTIONS]+");
+      Console.WriteLine ("Do a USB-DFU firmware update of an NXP Cortex-M processor");
+      Console.WriteLine ();
+      Console.WriteLine ("Options:");
+      p.WriteOptionDescriptions (Console.Out);
+    }
+
+   
     public static UsbDevice findOurDevice()
     {
       UsbDeviceFinder ourFinder = new UsbDeviceFinder(0x1fc9,0x000c);
@@ -63,13 +108,13 @@ namespace FirmwareUpdater
 
       if (allDevices.Count > 1)
         {
-          Console.WriteLine("I see too many devices. Make sure only ONE is connected to this machine!");
+          verboseOut("I see too many devices. Make sure only ONE is connected to this machine!");
           UsbDevice.Exit();
           Environment.Exit(1);
         }
       if (allDevices.Count == 0)
         {
-          Console.WriteLine("No device is connected to this machine!");
+          verboseOut("No device is connected to this machine!");
           UsbDevice.Exit();
           Environment.Exit(1);
         }
@@ -119,21 +164,22 @@ namespace FirmwareUpdater
       int actual;
 
       nxpdfu.set_debug(0,0);
-      Console.WriteLine("Erase...");
+      verboseOut("Erase...");
       nxpdfu.erase_all();
-      Console.WriteLine("Program...");
+      verboseOut("Program...");
       nxpdfu.program_region(bin, 0);
-      Console.WriteLine("Verify Read back...");
+      verboseOut("Verify Read back...");
       if (nxpdfu.verify_read(bin, 0))
         {
-          Console.WriteLine("Firmware update verified!");
+          verboseOut("Firmware update verified!");
         }
       else
         {
           Console.WriteLine("ERROR IN VERIFY! PLEASE TRY AGAIN!!");
+          return(false);
         }
       
-      Console.WriteLine("Reboot.");
+      verboseOut("Reboot.");
       nxpdfu.reset();
       
       return(true);
@@ -154,7 +200,15 @@ namespace FirmwareUpdater
 
     public static void DEBUG(String s)
     {
-      if (verbose)
+      if (debug)
+        {
+          Console.WriteLine(s);
+        }
+    }
+
+    public static void verboseOut(String s)
+    {
+      if (chatty)
         {
           Console.WriteLine(s);
         }

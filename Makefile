@@ -1,5 +1,5 @@
 
-all: TestProg.exe
+all: fup.exe
 
 VPATH=.:./DFU:./NXPDFU
 
@@ -9,13 +9,13 @@ USBLIBref=$(shell pkg-config --libs LibUsbDotNet)
 
 DEFINES=-debug -define:MONO_DATACONVERTER_PUBLIC\;MONO_DATACONVERTER_STATIC_METHODS -unsafe
 
-SOURCES=dfutypes.cs dfu.cs nxpdfutypes.cs nxpdfu.cs DataConverter.cs
+SOURCES=dfutypes.cs dfu.cs nxpdfutypes.cs nxpdfu.cs DataConverter.cs Options.cs
 
 REFS=$(USBLIBref)
 
 LIBS=$(USBLIB)
 
-TestProg.exe: TestProg.cs $(SOURCES) $(LIBS)
+fup.exe: fup.cs $(SOURCES) $(LIBS)
 	gmcs $(DEFINES) $(REFS) $(filter-out $(LIBS),$^)
 
 LibUsbDotNet.dll:
