@@ -4,8 +4,8 @@ all: fup.exe
 VPATH=.:./DFU:./NXPDFU
 
 USBLIB=LibUsbDotNet.dll
-USBLIBref=$(shell pkg-config --libs LibUsbDotNet)
-
+#USBLIBref=$(shell pkg-config --libs LibUsbDotNet)
+USBLIBref = -r:LibUSBDotNet.dll
 
 DEFINES=-debug -define:MONO_DATACONVERTER_PUBLIC\;MONO_DATACONVERTER_STATIC_METHODS -unsafe
 
@@ -18,8 +18,8 @@ LIBS=$(USBLIB)
 fup.exe: fup.cs $(SOURCES) $(LIBS)
 	gmcs $(DEFINES) $(REFS) $(filter-out $(LIBS),$^)
 
-LibUsbDotNet.dll:
-	ln -s `pkg-config --variable=Libraries LibUsbDotNet` .
+#LibUsbDotNet.dll:
+#	ln -s `pkg-config --variable=Libraries LibUsbDotNet` .
 
 clean:
-	rm -f *~ \#* LibUsbDotNet.dll *.exe
+	rm -f *~ \#* *.exe *.mdb
