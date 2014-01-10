@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Threading;
-using System.Security.Cryptography;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
@@ -118,17 +117,22 @@ namespace FirmwareUpdater
       int totalbytes=0;
       FileStream bin = File.Open(filename, FileMode.Open); 
       int actual;
-      
-      uint size=(uint)bin.Length;
-      byte[] readbuf = new byte[size];
-      
+
       nxpdfu.set_debug(0,0);
       Console.WriteLine("Erase...");
       nxpdfu.erase_all();
       Console.WriteLine("Program...");
       nxpdfu.program_region(bin, 0);
-      Console.WriteLine("Read back...");
-      nxpdfu.read_region(ref readbuf, 0, size, out actual);
+      Console.WriteLine("Verify Read back...");
+      if (nxpdfu.verify_read(bin, 0))
+        {
+          Console.WriteLine("Firmware update verified!");
+        }
+      else
+        {
+          Console.WriteLine("ERROR IN VERIFY! PLEASE TRY AGAIN!!");
+        }
+      
       Console.WriteLine("Reboot.");
       nxpdfu.reset();
       

@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Security.Cryptography;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
@@ -97,7 +98,37 @@ namespace FirmwareUpdater.NXPDFU
       wait_nxpidle();
 
       return(true);
-    } 
+    }
+
+    public byte[] get_sha(Stream s)
+    {
+      SHA1 mysha = SHA1.Create();
+      byte[] hashValue;
+      s.Seek(0,SeekOrigin.Begin);
+      hashValue=mysha.ComputeHash(s);
+      return(hashValue);
+    }
+
+    public byte[] get_sha(ref byte[] b)
+    {
+      SHA1 mysha = SHA1.Create();
+      byte[] hashValue;
+      hashValue=mysha.ComputeHash(b);
+      return(hashValue);
+    }
+
+    // Print the byte array in a readable format. 
+    public static void PrintByteArray(byte[] array)
+    {
+      int i;
+      for (i = 0; i < array.Length; i++)
+        {
+          Console.Write(String.Format("{0:X2}", array[i]));
+          if ((i % 4) == 3) Console.Write(" ");
+        }
+      Console.WriteLine();
+    }
+
 
     private static int getBytes(Stream s, ref byte[] buffer, int offset, int length)
     {
@@ -136,8 +167,33 @@ namespace FirmwareUpdater.NXPDFU
             if (!wait_nxpReadTrig()) break;
           } while (pos<=size);
         }
+      actual=pos;
       return(true);
     }
+
+    public bool verify_read(Stream s, uint addr)
+    {
+      uint size = (uint)s.Length;
+      int actual;
+      int k;
+      
+      //First get the SHA1 of our Stream ....
+      byte[] fileHash=get_sha(s);
+      // Now read back the flash contents and compare ...
+      byte[] bits = new byte[size];
+      read_region(ref bits, addr, size, out actual);
+      if (actual != size) throw new Exception("Readback didn't return the number of bytes we expected! ("
+                                              + actual.ToString() + " != " + size.ToString() + ")");
+      byte[] flashHash=get_sha(ref bits);
+      
+     // Now compare ... SHA1 is 20 bytes
+      for (k=0; k<20; k++)
+        {
+          if (fileHash[k] != flashHash[k]) return(false);
+        }
+      return(true);
+    }
+    
 
     public bool reset()
     {
