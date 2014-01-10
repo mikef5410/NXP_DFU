@@ -1,9 +1,11 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
 using FirmwareUpdater.DFU;
+using FirmwareUpdater.NXPDFU;
 
 namespace FirmwareUpdater
 {
@@ -81,6 +83,25 @@ namespace FirmwareUpdater
       return(true);
     }
 
+    public static bool phaseTwo( String filename, NXPDFUMachine nxpdfu )
+    {
+      bool done=false;
+      int transferSize = (dfu.wTransferSize < dfu.iobuf.Length) ? dfu.wTransferSize : dfu.iobuf.Length;
+      int totalbytes=0;
+      FileStream bin = File.Open(filename, FileMode.Open); 
+      int actual;
+      
+      uint size=(uint)bin.Length;
+      byte[] readbuf = new byte[size];
+      
+      nxpdfu.set_debug(0,0);
+      nxpdfu.erase_all();
+      nxpdfu.program_region(bin, 0);
+      nxpdfu.read_region(ref readbuf, 0, size, out actual);
+      
+      return(true);
+    }
+    
     public static int getBytes(Stream s, ref byte[] buffer, int offset, int length)
     {
       if ((offset + length) > buffer.Length) throw new ArgumentException("Buffer too small");
