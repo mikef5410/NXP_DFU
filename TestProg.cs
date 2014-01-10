@@ -47,7 +47,7 @@ namespace FirmwareUpdater
         }
       //Hack
       if (nxpdfu.wTransferSize == 0) nxpdfu.wTransferSize=2048;
-      
+      //nxpdfu.verbose=true;
       phaseTwo(@"LE320.bin",nxpdfu);
 
       

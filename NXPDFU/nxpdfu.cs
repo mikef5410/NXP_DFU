@@ -87,7 +87,6 @@ namespace FirmwareUpdater.NXPDFU
       do {
         actual=getBytes(s, ref iobuf, 0, wTransferSize);
         if (!wait_nxpProgStream()) break;
-        DEBUG("DL BLOCK");
         download(ref iobuf, (int)actual);
         wait_idle();
         download(ref iobuf, 0);
@@ -198,16 +197,23 @@ namespace FirmwareUpdater.NXPDFU
     public bool wait_nxpidle()
     {
       ULPktHdr h;
+      bool loop = true;
+      
       DEBUG("wait_nxpidle");
-      do
-        {
-          h=status();
-          if (h.progStatus == DFUStatusVals.OPSTS_ERRER  ||
-              h.progStatus == DFUStatusVals.OPSTS_PROGER ||
-              h.progStatus == DFUStatusVals.OPSTS_READER ||
-              h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for Idle state");
-          Thread.Sleep(100);
-        } while(h.progStatus != DFUStatusVals.OPSTS_IDLE);
+      while (loop) {
+        h=status();
+        if (h.progStatus == DFUStatusVals.OPSTS_ERRER  ||
+            h.progStatus == DFUStatusVals.OPSTS_PROGER ||
+            h.progStatus == DFUStatusVals.OPSTS_READER ||
+            h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for Idle state");
+
+        if (h.progStatus == DFUStatusVals.OPSTS_IDLE)
+          {
+            loop=false;
+            break;
+          } 
+        Thread.Sleep(10);
+      } 
       return(true);
     }
 
@@ -217,18 +223,26 @@ namespace FirmwareUpdater.NXPDFU
     public bool wait_nxpProgStream()
     {
      ULPktHdr h;
+     bool loop = true;
+     
      DEBUG("wait_nxpProgStream");
-      do
-        {
-          h=status();
-          if (h.progStatus == DFUStatusVals.OPSTS_ERRER  ||
-              h.progStatus == DFUStatusVals.OPSTS_PROGER ||
-              h.progStatus == DFUStatusVals.OPSTS_READER ||
-              h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for ProgStream state");
-          if (h.progStatus == DFUStatusVals.OPSTS_IDLE) return(false);
-          Thread.Sleep(100);
-        } while(h.progStatus != DFUStatusVals.OPSTS_PROG_STREAM);
-      return(true);      
+     while (loop) {
+       h=status();
+       if (h.progStatus == DFUStatusVals.OPSTS_ERRER  ||
+           h.progStatus == DFUStatusVals.OPSTS_PROGER ||
+           h.progStatus == DFUStatusVals.OPSTS_READER ||
+           h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for ProgStream state");
+       
+       if (h.progStatus == DFUStatusVals.OPSTS_IDLE) return(false);
+
+       if (h.progStatus == DFUStatusVals.OPSTS_PROG_STREAM)
+         {
+           loop=false;
+           break;
+         }
+       Thread.Sleep(10);
+     }
+     return(true);      
     }
 
     /// <summary>
@@ -237,17 +251,25 @@ namespace FirmwareUpdater.NXPDFU
     public bool wait_nxpReadTrig()
     {
       ULPktHdr h;
+      bool loop = true;
+      
       DEBUG("wait_nxpReadTrig");
-      do
-        {
-          h=status();
-          if (h.progStatus == DFUStatusVals.OPSTS_ERRER  ||
-              h.progStatus == DFUStatusVals.OPSTS_PROGER ||
-              h.progStatus == DFUStatusVals.OPSTS_READER ||
-              h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for ReadTrig state");
-          if (h.progStatus == DFUStatusVals.OPSTS_IDLE) return(false);
-          Thread.Sleep(100);
-        } while(h.progStatus != DFUStatusVals.OPSTS_READTRIG);
+      while (loop) {
+        h=status();
+        if (h.progStatus == DFUStatusVals.OPSTS_ERRER  ||
+            h.progStatus == DFUStatusVals.OPSTS_PROGER ||
+            h.progStatus == DFUStatusVals.OPSTS_READER ||
+            h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for ReadTrig state");
+
+        if (h.progStatus == DFUStatusVals.OPSTS_IDLE) return(false);
+
+        if (h.progStatus == DFUStatusVals.OPSTS_READTRIG)
+          {
+            loop=false;
+            break;
+          }
+        Thread.Sleep(10);
+      }
       return(true);     
     }
     

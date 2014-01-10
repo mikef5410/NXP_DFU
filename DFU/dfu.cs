@@ -175,12 +175,18 @@ namespace FirmwareUpdater.DFU
     public bool wait_idle()
     {
       DFU_Status status;
-
+      bool loop = true;
+      
       DEBUG("wait_idle");
-      do {
+      while (loop) {
         get_status(out status);
-        Thread.Sleep(100);
-      } while (status.State != DFUStateVals.STATE_DFU_DOWNLOAD_IDLE && status.State != DFUStateVals.STATE_DFU_IDLE );
+        if (status.State == DFUStateVals.STATE_DFU_DOWNLOAD_IDLE || status.State == DFUStateVals.STATE_DFU_IDLE )
+          {
+            loop=false;
+            break;
+          }
+        Thread.Sleep(10); //Wait 10ms
+      } 
 
       return(true);
     }
