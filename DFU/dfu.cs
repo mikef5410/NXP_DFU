@@ -1,5 +1,6 @@
 //
 using System;
+using System.Threading;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
@@ -19,6 +20,7 @@ namespace FirmwareUpdater.DFU
     public  int transaction = 0;
     public  int DFU_DETACH_TIMEOUT = 1000;
     public  int DFU_TIMEOUT = 20000;
+    public bool verbose = false;
     
     /// <summary>
     ///   Make a new DFUMachine for a given USB device
@@ -26,6 +28,14 @@ namespace FirmwareUpdater.DFU
     public DFUMachine(UsbDevice thisDevice)
     {
       myUSBDevice=thisDevice;
+    }
+
+   private void DEBUG(String s)
+    {
+      if (verbose)
+        {
+          Console.WriteLine(s);
+        }
     }
 
     /// <summary>
@@ -165,9 +175,13 @@ namespace FirmwareUpdater.DFU
     public bool wait_idle()
     {
       DFU_Status status;
+
+      DEBUG("wait_idle");
       do {
         get_status(out status);
-      } while (status.State != DFUStateVals.STATE_DFU_DOWNLOAD_IDLE);
+        Thread.Sleep(100);
+      } while (status.State != DFUStateVals.STATE_DFU_DOWNLOAD_IDLE && status.State != DFUStateVals.STATE_DFU_IDLE );
+
       return(true);
     }
 

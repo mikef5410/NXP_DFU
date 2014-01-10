@@ -1,6 +1,7 @@
 //
 using System;
 using System.IO;
+using System.Threading;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
@@ -11,16 +12,24 @@ namespace FirmwareUpdater.NXPDFU
 {
   public class NXPDFUMachine : DFUMachine
   {
-    public int something;
-    
+    public bool verbose = false;
 
     public NXPDFUMachine(UsbDevice thisDevice)  :base(thisDevice)
     {
       
     }
+
+    private void DEBUG(String s)
+    {
+      if (verbose)
+        {
+          Console.WriteLine(s);
+        }
+    }
     
     public bool set_debug(uint addr, uint size)
     {
+      DEBUG("set_debug");
       issue_command(DFUCommands.HOSTCMD_SETDEBUG, addr, size);
       wait_nxpidle();
       return(true);
@@ -28,6 +37,7 @@ namespace FirmwareUpdater.NXPDFU
 
     public bool erase_all()
     {
+      DEBUG("erase_all");
       issue_command(DFUCommands.HOSTCMD_ERASE_ALL, 0, 0);
       //While erasing, status will return OPSTS_ERASE
       wait_nxpidle();
@@ -36,6 +46,7 @@ namespace FirmwareUpdater.NXPDFU
 
     public bool erase_region(uint addr, uint size)
     {
+      DEBUG("erase_region");
       issue_command(DFUCommands.HOSTCMD_ERASE_REGION, addr, size);
       //While erasing, status will return OPSTS_ERASE
       wait_nxpidle();     
@@ -45,6 +56,7 @@ namespace FirmwareUpdater.NXPDFU
     //For programming a region less than our buffer size use this
     public bool program_region(ref byte[] buffer, uint addr, uint size)
     {
+      DEBUG("program_region");
       if (size > buffer.Length) throw new ArgumentException("program region called with size bigger than buffer!");
       if (size > wTransferSize) throw new ArgumentException("size greater than wTransferSize!");
 
@@ -62,6 +74,7 @@ namespace FirmwareUpdater.NXPDFU
 
     public bool program_region(Stream s, uint addr)
     {
+      DEBUG("program_region");
       //First we need to get the size of this stream (file)...
       s.Seek(0,SeekOrigin.Begin);
       uint size=(uint)s.Length;
@@ -74,6 +87,7 @@ namespace FirmwareUpdater.NXPDFU
       do {
         actual=getBytes(s, ref iobuf, 0, wTransferSize);
         if (!wait_nxpProgStream()) break;
+        DEBUG("DL BLOCK");
         download(ref iobuf, (int)actual);
         wait_idle();
         download(ref iobuf, 0);
@@ -104,6 +118,7 @@ namespace FirmwareUpdater.NXPDFU
       int pos=0;
       bool rval;
       
+      DEBUG("read_region");
       if (size > buffer.Length) Array.Resize<byte>(ref buffer, (int)size + 256);
       issue_command(DFUCommands.HOSTCMD_READBACK, addr, size);
       if (!wait_nxpReadTrig()) throw new Exception("READBACK command transitioned to OPSTS_IDLE!");
@@ -127,12 +142,14 @@ namespace FirmwareUpdater.NXPDFU
 
     public bool reset()
     {
+      DEBUG("reset");
       issue_command(DFUCommands.HOSTCMD_RESET,0,0);
       return(true);
     }
 
     public bool execute(uint addr)
     {
+      DEBUG("execute");
       issue_command(DFUCommands.HOSTCMD_EXECUTE, addr, 0);
       return(true);
     }
@@ -146,13 +163,18 @@ namespace FirmwareUpdater.NXPDFU
     {
       ULPktHdr h = new ULPktHdr();
       int actual;
-      bool rval=transfer_in((byte)DFU.DFUCommands.DFU_UPLOAD, 0, ref iobuf, 0x100, out actual);
+      byte[] buf = new byte[256];
+
+      bool rval=transfer_in((byte)DFU.DFUCommands.DFU_UPLOAD, 0, ref buf, 256, out actual);
       if (actual < 16) throw new Exception("NXPDFU status returned the wrong size packet! (" + actual.ToString() +" bytes, should be at least 16 )");
-      h.cmdResponse=(DFUCommands) Mono.DataConverter.UInt32FromLE(iobuf, 0);
-      h.progStatus=(DFUStatusVals) Mono.DataConverter.UInt32FromLE(iobuf,4);
-      h.strBytes=Mono.DataConverter.UInt32FromLE(iobuf,8);
-      h.reserved=Mono.DataConverter.UInt32FromLE(iobuf,12);
-      Array.Copy(iobuf,16,h.str,0,actual-16);
+      h.cmdResponse=(DFUCommands) Mono.DataConverter.UInt32FromLE(buf, 0);
+      h.progStatus=(DFUStatusVals) Mono.DataConverter.UInt32FromLE(buf,4);
+      h.strBytes=Mono.DataConverter.UInt32FromLE(buf,8);
+      h.reserved=Mono.DataConverter.UInt32FromLE(buf,12);
+      if (actual > 16)
+        {
+          Array.Copy(buf,16,h.str,0,actual-16);
+        }
       return(h);
     }
 
@@ -175,7 +197,8 @@ namespace FirmwareUpdater.NXPDFU
 
     public bool wait_nxpidle()
     {
-      ULPktHdr h; 
+      ULPktHdr h;
+      DEBUG("wait_nxpidle");
       do
         {
           h=status();
@@ -183,6 +206,7 @@ namespace FirmwareUpdater.NXPDFU
               h.progStatus == DFUStatusVals.OPSTS_PROGER ||
               h.progStatus == DFUStatusVals.OPSTS_READER ||
               h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for Idle state");
+          Thread.Sleep(100);
         } while(h.progStatus != DFUStatusVals.OPSTS_IDLE);
       return(true);
     }
@@ -192,7 +216,8 @@ namespace FirmwareUpdater.NXPDFU
     /// </summary>
     public bool wait_nxpProgStream()
     {
-     ULPktHdr h; 
+     ULPktHdr h;
+     DEBUG("wait_nxpProgStream");
       do
         {
           h=status();
@@ -201,6 +226,7 @@ namespace FirmwareUpdater.NXPDFU
               h.progStatus == DFUStatusVals.OPSTS_READER ||
               h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for ProgStream state");
           if (h.progStatus == DFUStatusVals.OPSTS_IDLE) return(false);
+          Thread.Sleep(100);
         } while(h.progStatus != DFUStatusVals.OPSTS_PROG_STREAM);
       return(true);      
     }
@@ -210,7 +236,8 @@ namespace FirmwareUpdater.NXPDFU
     /// </summary>
     public bool wait_nxpReadTrig()
     {
-      ULPktHdr h; 
+      ULPktHdr h;
+      DEBUG("wait_nxpReadTrig");
       do
         {
           h=status();
@@ -219,6 +246,7 @@ namespace FirmwareUpdater.NXPDFU
               h.progStatus == DFUStatusVals.OPSTS_READER ||
               h.progStatus == DFUStatusVals.OPSTS_ERRUN)  throw new Exception("Error waiting for ReadTrig state");
           if (h.progStatus == DFUStatusVals.OPSTS_IDLE) return(false);
+          Thread.Sleep(100);
         } while(h.progStatus != DFUStatusVals.OPSTS_READTRIG);
       return(true);     
     }

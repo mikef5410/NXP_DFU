@@ -7,7 +7,7 @@ USBLIB=LibUsbDotNet.dll
 USBLIBref=$(shell pkg-config --libs LibUsbDotNet)
 
 
-DEFINES=-define:MONO_DATACONVERTER_PUBLIC\;MONO_DATACONVERTER_STATIC_METHODS -unsafe
+DEFINES=-debug -define:MONO_DATACONVERTER_PUBLIC\;MONO_DATACONVERTER_STATIC_METHODS -unsafe
 
 SOURCES=dfutypes.cs dfu.cs nxpdfutypes.cs nxpdfu.cs DataConverter.cs
 

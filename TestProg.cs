@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Security.Cryptography;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
@@ -12,26 +13,13 @@ namespace FirmwareUpdater
   public static class Program
   {
     public static UsbDevice ourDevice;
-    public static UsbDeviceFinder ourFinder = new UsbDeviceFinder(0x1fc9,0x000c);
     public static DFUMachine dfu;
+    public static NXPDFUMachine nxpdfu;
+    public static bool verbose = false;
+    
     public static void Main(string[] args)
     {
-      UsbRegDeviceList allDevices = UsbDevice.AllDevices.FindAll(ourFinder) ;
-      if (allDevices.Count > 1)
-        {
-          Console.WriteLine("I see too many devices. Make sure only ONE is connected to this machine!");
-          if (ourDevice.IsOpen) ourDevice.Close();
-          UsbDevice.Exit();
-          Environment.Exit(1);
-        }
-      if (allDevices.Count == 0)
-        {
-          Console.WriteLine("No device is connected to this machine!");
-          if (ourDevice.IsOpen) ourDevice.Close();
-          UsbDevice.Exit();
-          Environment.Exit(1);
-        }
-      allDevices[0].Open(out ourDevice);
+      ourDevice=findOurDevice();
       dfu = new DFUMachine(ourDevice);
       
       if (dfu.findInterface())
@@ -39,17 +27,57 @@ namespace FirmwareUpdater
           Console.WriteLine("Found DFU interface");
           Console.WriteLine(dfu.ToString());
           dfu.claimIface();
-          Console.WriteLine("wTransferSize = "+dfu.wTransferSize.ToString());
+          DEBUG("wTransferSize = "+dfu.wTransferSize.ToString());
         }
       //Hack
       if (dfu.wTransferSize == 0) dfu.wTransferSize=2048;
       phaseOne(@"SECLOAD.bin.hdr", dfu);
-           
+
+      Console.WriteLine("Wait 5 sec for next phase ...");
+      Thread.Sleep(5000);
+      if (ourDevice.IsOpen) ourDevice.Close();
+      ourDevice=findOurDevice();
+      nxpdfu = new NXPDFUMachine(ourDevice);
+      if (nxpdfu.findInterface())
+        {
+          Console.WriteLine("Found DFU interface");
+          Console.WriteLine(nxpdfu.ToString());
+          nxpdfu.claimIface();
+          DEBUG("wTransferSize = "+nxpdfu.wTransferSize.ToString());
+        }
+      //Hack
+      if (nxpdfu.wTransferSize == 0) nxpdfu.wTransferSize=2048;
+      
+      phaseTwo(@"LE320.bin",nxpdfu);
+
+      
       if (ourDevice.IsOpen) ourDevice.Close();
       UsbDevice.Exit();
       Environment.Exit(0);   
     } //Main
 
+    public static UsbDevice findOurDevice()
+    {
+      UsbDeviceFinder ourFinder = new UsbDeviceFinder(0x1fc9,0x000c);
+      UsbDevice d;
+      UsbRegDeviceList allDevices = UsbDevice.AllDevices.FindAll(ourFinder) ;
+
+      if (allDevices.Count > 1)
+        {
+          Console.WriteLine("I see too many devices. Make sure only ONE is connected to this machine!");
+          UsbDevice.Exit();
+          Environment.Exit(1);
+        }
+      if (allDevices.Count == 0)
+        {
+          Console.WriteLine("No device is connected to this machine!");
+          UsbDevice.Exit();
+          Environment.Exit(1);
+        }
+      allDevices[0].Open(out d);
+      return(d);
+    }
+    
     public static bool phaseOne( String filename, DFUMachine dfu )
     {
       bool done=false;
@@ -65,7 +93,7 @@ namespace FirmwareUpdater
         {
           int nbytes = getBytes(secloader, ref dfu.iobuf, 0, transferSize);
           totalbytes += nbytes;
-          Console.WriteLine("Got " + nbytes.ToString() + "bytes, total:" + totalbytes.ToString());
+          DEBUG("Got " + nbytes.ToString() + "bytes, total:" + totalbytes.ToString());
           if (nbytes>0)
             {
               dfu.download(ref dfu.iobuf, nbytes);
@@ -95,9 +123,14 @@ namespace FirmwareUpdater
       byte[] readbuf = new byte[size];
       
       nxpdfu.set_debug(0,0);
+      Console.WriteLine("Erase...");
       nxpdfu.erase_all();
+      Console.WriteLine("Program...");
       nxpdfu.program_region(bin, 0);
+      Console.WriteLine("Read back...");
       nxpdfu.read_region(ref readbuf, 0, size, out actual);
+      Console.WriteLine("Reboot.");
+      nxpdfu.reset();
       
       return(true);
     }
@@ -114,6 +147,15 @@ namespace FirmwareUpdater
         }
       return(bytesReadSoFar);
     }
+
+    public static void DEBUG(String s)
+    {
+      if (verbose)
+        {
+          Console.WriteLine(s);
+        }
+    }
+    
     
   } //class
   
